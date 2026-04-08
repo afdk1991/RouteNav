@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Linking,
+  Vibration,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +18,9 @@ import { getExternalMapUrl } from '@/utils/api';
 import type { RouteItem } from '@/utils/types';
 
 const { width } = Dimensions.get('window');
+
+// 到达阈值（米）
+const ARRIVAL_THRESHOLD_METERS = 100;
 
 interface NavigateScreenProps {
   currentRoute?: RouteItem | null;
@@ -27,7 +32,11 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
   const [navigating, setNavigating] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [autoSwitch, setAutoSwitch] = useState(true); // 自动切换开关
+  const [arrivedAtPoint, setArrivedAtPoint] = useState(false); // 是否已到达当前点
+  const [showArrivalAlert, setShowArrivalAlert] = useState(false); // 是否显示到达提示
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAutoSwitchIndexRef = useRef<number>(-1); // 记录上次自动切换的索引
 
   useEffect(() => {
     requestLocationPermission();
@@ -54,6 +63,40 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
       }
     };
   }, [navigating]);
+
+  // 自动切换检测逻辑
+  useEffect(() => {
+    if (!autoSwitch || !location || !currentRoute || !navigating) {
+      return;
+    }
+
+    const distance = getDistanceToNext();
+    if (distance === null) return;
+
+    const distanceInMeters = distance * 1000; // 转换为米
+
+    // 检测是否到达（距离小于阈值）
+    if (distanceInMeters < ARRIVAL_THRESHOLD_METERS) {
+      // 防止重复触发（只有当索引变化时才触发）
+      if (currentIndex !== lastAutoSwitchIndexRef.current && !arrivedAtPoint) {
+        setArrivedAtPoint(true);
+        setShowArrivalAlert(true);
+
+        // 震动提示
+        Vibration.vibrate([0, 500, 200, 500]);
+
+        // 震动后自动切换
+        setTimeout(() => {
+          handleAutoNextPoint();
+        }, 1500); // 1.5秒后自动切换
+      }
+    } else {
+      // 远离目标点时重置状态
+      if (distanceInMeters > ARRIVAL_THRESHOLD_METERS * 2) {
+        setArrivedAtPoint(false);
+      }
+    }
+  }, [location, currentIndex, autoSwitch, navigating, arrivedAtPoint, currentRoute]);
 
   const requestLocationPermission = async () => {
     try {
@@ -83,8 +126,8 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
     Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.High,
-        timeInterval: 5000,
-        distanceInterval: 10,
+        timeInterval: 3000, // 更频繁的更新
+        distanceInterval: 5,
       },
       (newLocation) => {
         setLocation({
@@ -101,16 +144,38 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleNextPoint = () => {
+  // 自动切换到下一站
+  const handleAutoNextPoint = useCallback(() => {
     if (!currentRoute) return;
-    
+
     if (currentIndex < currentRoute.orderedAddresses.length - 1) {
+      // 更新索引记录
+      lastAutoSwitchIndexRef.current = currentIndex + 1;
+      setArrivedAtPoint(false);
+      setShowArrivalAlert(false);
+
+      // 显示切换提示
+      const nextAddress = currentRoute.orderedAddresses[currentIndex + 1];
+      Alert.alert(
+        '已到达',
+        `已自动切换到下一站：${nextAddress.name}`,
+        [{ text: '知道了' }]
+      );
+
+      // 切换到下一站
       setCurrentIndex((prev) => prev + 1);
     } else {
+      // 所有站点都已到达
+      Vibration.vibrate([0, 500, 200, 500, 200, 500]);
       Alert.alert('导航完成', '您已到达所有目的地！', [
         {
           text: '重新开始',
-          onPress: () => setCurrentIndex(0),
+          onPress: () => {
+            setCurrentIndex(0);
+            setElapsedTime(0);
+            lastAutoSwitchIndexRef.current = -1;
+            setArrivedAtPoint(false);
+          },
         },
         {
           text: '结束导航',
@@ -118,17 +183,56 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
             setNavigating(false);
             setCurrentIndex(0);
             setElapsedTime(0);
+            lastAutoSwitchIndexRef.current = -1;
+            setArrivedAtPoint(false);
           },
         },
       ]);
     }
-  };
+  }, [currentRoute, currentIndex]);
 
-  const handlePrevPoint = () => {
+  // 手动切换到下一站
+  const handleNextPoint = useCallback(() => {
+    if (!currentRoute) return;
+
+    // 手动切换时重置自动切换状态
+    lastAutoSwitchIndexRef.current = currentIndex;
+    setArrivedAtPoint(false);
+    setShowArrivalAlert(false);
+
+    if (currentIndex < currentRoute.orderedAddresses.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    } else {
+      Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+      Alert.alert('导航完成', '您已到达所有目的地！', [
+        {
+          text: '重新开始',
+          onPress: () => {
+            setCurrentIndex(0);
+            setElapsedTime(0);
+            lastAutoSwitchIndexRef.current = -1;
+          },
+        },
+        {
+          text: '结束导航',
+          onPress: () => {
+            setNavigating(false);
+            setCurrentIndex(0);
+            setElapsedTime(0);
+            lastAutoSwitchIndexRef.current = -1;
+          },
+        },
+      ]);
+    }
+  }, [currentRoute, currentIndex]);
+
+  const handlePrevPoint = useCallback(() => {
     if (currentIndex > 0) {
+      lastAutoSwitchIndexRef.current = currentIndex - 1;
+      setArrivedAtPoint(false);
       setCurrentIndex((prev) => prev - 1);
     }
-  };
+  }, [currentIndex]);
 
   const handleOpenExternalMap = async (provider: 'amap' | 'baidu' | 'google' | 'apple') => {
     if (!currentRoute || currentRoute.orderedAddresses.length === 0) {
@@ -160,7 +264,7 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
     }
   };
 
-  const getDistanceToNext = () => {
+  const getDistanceToNext = useCallback(() => {
     if (!location || !currentRoute || currentIndex >= currentRoute.orderedAddresses.length) {
       return null;
     }
@@ -174,7 +278,7 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
     );
 
     return distance;
-  };
+  }, [location, currentRoute, currentIndex]);
 
   const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371;
@@ -190,7 +294,7 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
     return R * c;
   };
 
-  const getBearing = () => {
+  const getBearing = useCallback(() => {
     if (!location || !currentRoute || currentIndex >= currentRoute.orderedAddresses.length) {
       return 0;
     }
@@ -208,6 +312,15 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
     bearing = (bearing + 360) % 360;
 
     return bearing;
+  }, [location, currentRoute, currentIndex]);
+
+  // 格式化距离显示
+  const formatDistance = (km: number | null) => {
+    if (km === null) return '--';
+    if (km < 1) {
+      return `${Math.round(km * 1000)}m`;
+    }
+    return `${km.toFixed(1)}km`;
   };
 
   if (loading) {
@@ -234,32 +347,53 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
   const currentAddress = currentRoute.orderedAddresses[currentIndex];
   const nextAddress = currentRoute.orderedAddresses[currentIndex + 1];
   const distanceToNext = getDistanceToNext();
+  const distanceInMeters = distanceToNext !== null ? distanceToNext * 1000 : null;
   const bearing = getBearing();
   const progress = ((currentIndex + 1) / currentRoute.orderedAddresses.length) * 100;
+  const isNearTarget = distanceInMeters !== null && distanceInMeters < ARRIVAL_THRESHOLD_METERS;
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>实时导航</Text>
-        <View style={styles.timerContainer}>
-          <Ionicons name="time-outline" size={18} color="#6C63FF" />
-          <Text style={styles.timerText}>{formatTime(elapsedTime)}</Text>
+        <View style={styles.headerRight}>
+          <View style={styles.timerContainer}>
+            <Ionicons name="time-outline" size={18} color="#6C63FF" />
+            <Text style={styles.timerText}>{formatTime(elapsedTime)}</Text>
+          </View>
         </View>
       </View>
 
       {/* Map Placeholder */}
       <View style={styles.mapContainer}>
         <LinearGradient
-          colors={['#E8E8EB', '#F0F0F3']}
-          style={styles.mapPlaceholder}
+          colors={isNearTarget ? ['#00B894', '#00CEC9'] : ['#E8E8EB', '#F0F0F3']}
+          style={[styles.mapPlaceholder, isNearTarget && styles.mapNearTarget]}
         >
           {/* Compass */}
           <View style={styles.compassContainer}>
             <View style={[styles.compass, { transform: [{ rotate: `${-bearing}deg` }] }]}>
-              <Ionicons name="navigate" size={32} color="#6C63FF" />
+              <Ionicons name="navigate" size={32} color={isNearTarget ? '#FFF' : '#6C63FF'} />
             </View>
-            <Text style={styles.compassText}>{Math.round(bearing)}°</Text>
+            <Text style={[styles.compassText, isNearTarget && styles.compassTextActive]}>
+              {Math.round(bearing)}°
+            </Text>
+          </View>
+
+          {/* Distance Badge */}
+          <View style={[styles.distanceBadge, isNearTarget && styles.distanceBadgeActive]}>
+            <Ionicons
+              name={isNearTarget ? 'checkmark-circle' : 'location'}
+              size={20}
+              color={isNearTarget ? '#FFF' : '#6C63FF'}
+            />
+            <Text style={[styles.distanceBadgeText, isNearTarget && styles.distanceBadgeTextActive]}>
+              {formatDistance(distanceInMeters !== null ? distanceInMeters / 1000 : null)}
+            </Text>
+            {isNearTarget && (
+              <Text style={styles.arrivalText}>即将到达</Text>
+            )}
           </View>
 
           {/* Location Info */}
@@ -286,22 +420,42 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
         </View>
       </View>
 
+      {/* Auto Switch Toggle */}
+      <View style={styles.autoSwitchContainer}>
+        <View style={styles.autoSwitchLeft}>
+          <Ionicons
+            name={autoSwitch ? 'flash' : 'flash-outline'}
+            size={18}
+            color={autoSwitch ? '#FDCB6E' : '#B2BEC3'}
+          />
+          <Text style={styles.autoSwitchLabel}>自动切换下一站</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.autoSwitchBtn, autoSwitch && styles.autoSwitchBtnActive]}
+          onPress={() => setAutoSwitch(!autoSwitch)}
+        >
+          <View style={[styles.autoSwitchThumb, autoSwitch && styles.autoSwitchThumbActive]} />
+        </TouchableOpacity>
+      </View>
+
       {/* Current Destination */}
-      <View style={styles.destinationCard}>
+      <View style={[styles.destinationCard, isNearTarget && styles.destinationCardArrived]}>
         <View style={styles.destinationHeader}>
-          <View style={styles.indexBadge}>
+          <View style={[styles.indexBadge, isNearTarget && styles.indexBadgeArrived]}>
             <Text style={styles.indexBadgeText}>{currentIndex + 1}</Text>
           </View>
           <View style={styles.destinationInfo}>
-            <Text style={styles.destinationName}>{currentAddress.name}</Text>
+            <Text style={[styles.destinationName, isNearTarget && styles.destinationNameArrived]}>
+              {currentAddress.name}
+            </Text>
             <Text style={styles.destinationAddress} numberOfLines={1}>
               {currentAddress.address}
             </Text>
           </View>
-          {distanceToNext !== null && (
-            <View style={styles.distanceBadge}>
-              <Text style={styles.distanceValue}>
-                {distanceToNext < 1 ? `${Math.round(distanceToNext * 1000)}m` : `${distanceToNext.toFixed(1)}km`}
+          {distanceInMeters !== null && (
+            <View style={[styles.distanceBadgeSmall, isNearTarget && styles.distanceBadgeSmallActive]}>
+              <Text style={[styles.distanceValue, isNearTarget && styles.distanceValueActive]}>
+                {formatDistance(distanceInMeters)}
               </Text>
             </View>
           )}
@@ -317,11 +471,11 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
             <Ionicons name="chevron-back" size={24} color={currentIndex === 0 ? '#B2BEC3' : '#6C63FF'} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.nextBtn}
-            onPress={handleNextPoint}
-          >
-            <LinearGradient colors={['#6C63FF', '#896BFF']} style={styles.nextBtnGradient}>
+          <TouchableOpacity style={styles.nextBtn} onPress={handleNextPoint}>
+            <LinearGradient
+              colors={isNearTarget ? ['#00B894', '#00CEC9'] : ['#6C63FF', '#896BFF']}
+              style={styles.nextBtnGradient}
+            >
               <Text style={styles.nextBtnText}>
                 {currentIndex < currentRoute.orderedAddresses.length - 1 ? '下一站' : '完成'}
               </Text>
@@ -329,15 +483,8 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.navBtn]}
-            onPress={() => setNavigating(!navigating)}
-          >
-            <Ionicons
-              name={navigating ? 'pause' : 'play'}
-              size={24}
-              color="#6C63FF"
-            />
+          <TouchableOpacity style={styles.navBtn} onPress={() => setNavigating(!navigating)}>
+            <Ionicons name={navigating ? 'pause' : 'play'} size={24} color="#6C63FF" />
           </TouchableOpacity>
         </View>
 
@@ -345,28 +492,16 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
         <View style={styles.externalMaps}>
           <Text style={styles.externalMapsTitle}>其他地图导航</Text>
           <View style={styles.mapButtons}>
-            <TouchableOpacity
-              style={styles.mapBtn}
-              onPress={() => handleOpenExternalMap('amap')}
-            >
+            <TouchableOpacity style={styles.mapBtn} onPress={() => handleOpenExternalMap('amap')}>
               <Text style={styles.mapBtnText}>高德</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.mapBtn}
-              onPress={() => handleOpenExternalMap('baidu')}
-            >
+            <TouchableOpacity style={styles.mapBtn} onPress={() => handleOpenExternalMap('baidu')}>
               <Text style={styles.mapBtnText}>百度</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.mapBtn}
-              onPress={() => handleOpenExternalMap('google')}
-            >
+            <TouchableOpacity style={styles.mapBtn} onPress={() => handleOpenExternalMap('google')}>
               <Text style={styles.mapBtnText}>谷歌</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.mapBtn}
-              onPress={() => handleOpenExternalMap('apple')}
-            >
+            <TouchableOpacity style={styles.mapBtn} onPress={() => handleOpenExternalMap('apple')}>
               <Text style={styles.mapBtnText}>苹果</Text>
             </TouchableOpacity>
           </View>
@@ -378,6 +513,19 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
         <View style={styles.nextPreview}>
           <Text style={styles.nextPreviewLabel}>下一站</Text>
           <Text style={styles.nextPreviewName}>{nextAddress.name}</Text>
+          {!autoSwitch && (
+            <Text style={styles.autoSwitchHint}>提示：开启自动切换，到达后自动跳转</Text>
+          )}
+        </View>
+      )}
+
+      {/* Arrived Indicator */}
+      {arrivedAtPoint && (
+        <View style={styles.arrivedIndicator}>
+          <LinearGradient colors={['#00B894', '#00CEC9']} style={styles.arrivedGradient}>
+            <Ionicons name="checkmark-circle" size={24} color="#FFF" />
+            <Text style={styles.arrivedText}>已到达，即将切换到下一站...</Text>
+          </LinearGradient>
         </View>
       )}
     </View>
@@ -401,6 +549,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#2D3436',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   timerContainer: {
     flexDirection: 'row',
@@ -447,14 +599,18 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     paddingHorizontal: 24,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   mapPlaceholder: {
-    height: 200,
+    height: 180,
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+  },
+  mapNearTarget: {
+    borderWidth: 3,
+    borderColor: '#00B894',
   },
   compassContainer: {
     alignItems: 'center',
@@ -477,6 +633,44 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6C63FF',
     marginTop: 8,
+  },
+  compassTextActive: {
+    color: '#FFF',
+  },
+  distanceBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  distanceBadgeActive: {
+    backgroundColor: '#00B894',
+  },
+  distanceBadgeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#6C63FF',
+    marginLeft: 6,
+    fontVariant: ['tabular-nums'],
+  },
+  distanceBadgeTextActive: {
+    color: '#FFF',
+  },
+  arrivalText: {
+    fontSize: 11,
+    color: '#FFF',
+    marginLeft: 8,
+    fontWeight: '600',
   },
   locationInfo: {
     position: 'absolute',
@@ -513,6 +707,56 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#636E72',
   },
+  autoSwitchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0F0F3',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 24,
+    marginBottom: 12,
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  autoSwitchLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  autoSwitchLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginLeft: 8,
+  },
+  autoSwitchBtn: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E8E8EB',
+    padding: 2,
+    justifyContent: 'center',
+  },
+  autoSwitchBtnActive: {
+    backgroundColor: '#00B894',
+  },
+  autoSwitchThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  autoSwitchThumbActive: {
+    alignSelf: 'flex-end',
+  },
   destinationCard: {
     backgroundColor: '#F0F0F3',
     borderRadius: 24,
@@ -523,6 +767,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.7,
     shadowRadius: 8,
     elevation: 6,
+  },
+  destinationCardArrived: {
+    borderWidth: 2,
+    borderColor: '#00B894',
   },
   destinationHeader: {
     flexDirection: 'row',
@@ -538,6 +786,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  indexBadgeArrived: {
+    backgroundColor: '#00B894',
+  },
   indexBadgeText: {
     fontSize: 16,
     fontWeight: '800',
@@ -551,21 +802,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2D3436',
   },
+  destinationNameArrived: {
+    color: '#00B894',
+  },
   destinationAddress: {
     fontSize: 13,
     color: '#636E72',
     marginTop: 2,
   },
-  distanceBadge: {
+  distanceBadgeSmall: {
     backgroundColor: 'rgba(108, 99, 255, 0.12)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
   },
+  distanceBadgeSmallActive: {
+    backgroundColor: 'rgba(0, 184, 148, 0.2)',
+  },
   distanceValue: {
     fontSize: 14,
     fontWeight: '700',
     color: '#6C63FF',
+  },
+  distanceValueActive: {
+    color: '#00B894',
   },
   navControls: {
     flexDirection: 'row',
@@ -629,7 +889,7 @@ const styles = StyleSheet.create({
   },
   nextPreview: {
     marginHorizontal: 24,
-    marginTop: 16,
+    marginTop: 12,
     padding: 16,
     backgroundColor: '#E8E8EB',
     borderRadius: 16,
@@ -644,5 +904,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#636E72',
+  },
+  autoSwitchHint: {
+    fontSize: 11,
+    color: '#B2BEC3',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  arrivedIndicator: {
+    position: 'absolute',
+    top: '40%',
+    left: 24,
+    right: 24,
+  },
+  arrivedGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  arrivedText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+    marginLeft: 12,
   },
 });
