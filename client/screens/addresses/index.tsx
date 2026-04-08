@@ -142,45 +142,49 @@ export default function AddressScreen({ onNavigateToRoute }: AddressScreenProps)
   };
 
   const renderAddressItem = ({ item }: { item: AddressItem }) => (
-    <TouchableOpacity
-      style={styles.addressCard}
-      onPress={() => openEditModal(item)}
-      onLongPress={() => handleDelete(item)}
-    >
-      <View style={styles.addressIconContainer}>
-        <View style={[styles.iconBg, item.isStart && styles.iconStart, item.isEnd && styles.iconEnd]}>
-          <Ionicons
-            name={item.isStart ? 'flag' : item.isEnd ? 'flag' : 'location'}
-            size={20}
-            color={item.isStart ? '#00B894' : item.isEnd ? '#FF6B6B' : '#6C63FF'}
-          />
+    <View style={styles.addressCard}>
+      <TouchableOpacity
+        style={styles.addressContent}
+        onPress={() => openEditModal(item)}
+        onLongPress={() => handleDelete(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.addressIconContainer}>
+          <View style={[styles.iconBg, item.isStart && styles.iconStart, item.isEnd && styles.iconEnd]}>
+            <Ionicons
+              name={item.isStart ? 'flag' : item.isEnd ? 'flag' : 'location'}
+              size={20}
+              color={item.isStart ? '#00B894' : item.isEnd ? '#FF6B6B' : '#6C63FF'}
+            />
+          </View>
         </View>
-      </View>
-      <View style={styles.addressInfo}>
-        <Text style={styles.addressName}>{item.name}</Text>
-        <Text style={styles.addressDetail} numberOfLines={1}>
-          {item.address}
-        </Text>
-        <View style={styles.addressTags}>
-          {item.isStart && (
-            <View style={[styles.tag, styles.tagStart]}>
-              <Text style={[styles.tagText, styles.tagTextStart]}>起点</Text>
-            </View>
-          )}
-          {item.isEnd && (
-            <View style={[styles.tag, styles.tagEnd]}>
-              <Text style={[styles.tagText, styles.tagTextEnd]}>终点</Text>
-            </View>
-          )}
+        <View style={styles.addressInfo}>
+          <Text style={styles.addressName}>{item.name}</Text>
+          <Text style={styles.addressDetail} numberOfLines={1}>
+            {item.address}
+          </Text>
+          <View style={styles.addressTags}>
+            {item.isStart && (
+              <View style={[styles.tag, styles.tagStart]}>
+                <Text style={[styles.tagText, styles.tagTextStart]}>起点</Text>
+              </View>
+            )}
+            {item.isEnd && (
+              <View style={[styles.tag, styles.tagEnd]}>
+                <Text style={[styles.tagText, styles.tagTextEnd]}>终点</Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
         style={styles.deleteBtn}
         onPress={() => handleDelete(item)}
+        activeOpacity={0.7}
       >
         <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -446,6 +450,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+  addressContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   addressIconContainer: {
     marginRight: 14,
   },
@@ -503,7 +512,15 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
   },
   deleteBtn: {
-    padding: 8,
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   addButton: {
     position: 'absolute',

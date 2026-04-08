@@ -128,13 +128,11 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
   };
 
   const renderRouteItem = ({ item }: { item: RouteItem }) => (
-    <TouchableOpacity
+    <TouchableOpacity 
       style={styles.routeCard}
-      onPress={() => {
-        // Navigate to route detail page
-        router.push('/route-detail', { route: JSON.stringify(item) });
-      }}
+      onPress={() => router.push('/route-detail', { route: JSON.stringify(item) })}
       onLongPress={() => handleDeleteRoute(item)}
+      activeOpacity={0.8}
     >
       <View style={styles.routeHeader}>
         <View style={styles.routeIconContainer}>
@@ -157,6 +155,7 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
         <TouchableOpacity
           style={styles.editBtn}
           onPress={() => router.push('/route-detail', { route: JSON.stringify(item) })}
+          activeOpacity={0.7}
         >
           <Ionicons name="create-outline" size={18} color="#6C63FF" />
         </TouchableOpacity>
@@ -433,6 +432,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   editBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
     width: 36,
     height: 36,
     borderRadius: 18,

@@ -311,21 +311,13 @@ export default function RouteDetailScreen({ route: propRoute, onRouteUpdate }: R
       >
         {addresses.map((item, index) => (
           <View key={`${item.id}-${index}`} style={styles.itemWrapper}>
-            <DraggableItem
-              item={item}
-              index={index}
-              total={addresses.length}
-              isDragging={draggingIndex === index}
-              onDragStart={() => handleDragStart(index)}
-              onDragEnd={handleDragEnd}
-            />
-            
-            {/* Move Buttons */}
+            {/* Move Buttons - placed BEFORE DraggableItem for better touch stacking */}
             <View style={styles.moveButtons}>
               <TouchableOpacity
                 style={[styles.moveBtn, index === 0 && styles.moveBtnDisabled]}
                 onPress={() => handleMoveUp(index)}
                 disabled={index === 0}
+                activeOpacity={0.7}
               >
                 <Ionicons
                   name="chevron-up"
@@ -337,6 +329,7 @@ export default function RouteDetailScreen({ route: propRoute, onRouteUpdate }: R
                 style={[styles.moveBtn, index === addresses.length - 1 && styles.moveBtnDisabled]}
                 onPress={() => handleMoveDown(index)}
                 disabled={index === addresses.length - 1}
+                activeOpacity={0.7}
               >
                 <Ionicons
                   name="chevron-down"
@@ -345,6 +338,15 @@ export default function RouteDetailScreen({ route: propRoute, onRouteUpdate }: R
                 />
               </TouchableOpacity>
             </View>
+            
+            <DraggableItem
+              item={item}
+              index={index}
+              total={addresses.length}
+              isDragging={draggingIndex === index}
+              onDragStart={() => handleDragStart(index)}
+              onDragEnd={handleDragEnd}
+            />
           </View>
         ))}
       </ScrollView>
@@ -482,6 +484,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: ITEM_MARGIN,
+    zIndex: 1,
   },
   dragItem: {
     flex: 1,
