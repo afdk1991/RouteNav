@@ -22,6 +22,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ title: "" }} />
+        <Stack.Screen name="route-detail" options={{ title: "路线详情" }} />
       </Stack>
       <Toast />
     </Provider>

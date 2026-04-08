@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 import type { AddressItem, RouteItem } from '@/utils/types';
 import { getAddresses, getRoutes, optimizeRoute, deleteRoute } from '@/utils/api';
 
@@ -21,6 +22,7 @@ interface RouteScreenProps {
 }
 
 export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
+  const router = useSafeRouter();
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,10 +131,8 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
     <TouchableOpacity
       style={styles.routeCard}
       onPress={() => {
-        setCurrentRoute(item);
-        if (onNavigateToPreview) {
-          onNavigateToPreview(item);
-        }
+        // Navigate to route detail page
+        router.push('/route-detail', { route: JSON.stringify(item) });
       }}
       onLongPress={() => handleDeleteRoute(item)}
     >
@@ -154,6 +154,12 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
             </Text>
           </View>
         </View>
+        <TouchableOpacity
+          style={styles.editBtn}
+          onPress={() => router.push('/route-detail', { route: JSON.stringify(item) })}
+        >
+          <Ionicons name="create-outline" size={18} color="#6C63FF" />
+        </TouchableOpacity>
       </View>
       
       <View style={styles.routeStats}>
@@ -425,6 +431,14 @@ const styles = StyleSheet.create({
   },
   routeInfo: {
     flex: 1,
+  },
+  editBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(108, 99, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   routeName: {
     fontSize: 16,
