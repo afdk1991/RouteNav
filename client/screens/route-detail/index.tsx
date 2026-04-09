@@ -142,27 +142,44 @@ function DraggableItem({
   );
 }
 
-interface RouteDetailScreenProps {
-  route?: RouteItem;
-  onRouteUpdate?: (updatedRoute: RouteItem) => void;
-}
-
-export default function RouteDetailScreen({ route: propRoute, onRouteUpdate }: RouteDetailScreenProps) {
+export default function RouteDetailScreen() {
   const router = useSafeRouter();
   const params = useSafeSearchParams<{ route?: string }>();
   
-  // Get route from props or params
-  const initialRoute = propRoute || (params.route ? JSON.parse(params.route) : null);
-  const [addresses, setAddresses] = useState<AddressItem[]>(initialRoute?.orderedAddresses || []);
-  const [originalRoute, setOriginalRoute] = useState<RouteItem | null>(initialRoute);
+  const [route, setRoute] = useState<RouteItem | null>(null);
+  
+  // Get route from params
+  const getInitialRoute = () => {
+    if (params.route) {
+      try {
+        return JSON.parse(params.route as string) as RouteItem;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+  
+  const [addresses, setAddresses] = useState<AddressItem[]>([]);
+  const [originalRoute, setOriginalRoute] = useState<RouteItem | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [draggingIndex, setDraggingIndex] = useState(-1);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Update addresses when route changes
+  // Initialize route from params
   useEffect(() => {
-    if (params.route) {
-      const parsedRoute: RouteItem = JSON.parse(params.route);
+    const initial = getInitialRoute();
+    if (initial) {
+      setRoute(initial);
+      setAddresses(initial.orderedAddresses);
+      setOriginalRoute(initial);
+    }
+  }, []);
+
+  // Update addresses when params change
+  useEffect(() => {
+    const parsedRoute = getInitialRoute();
+    if (parsedRoute) {
       setAddresses(parsedRoute.orderedAddresses);
       setOriginalRoute(parsedRoute);
     }
@@ -231,10 +248,6 @@ export default function RouteDetailScreen({ route: propRoute, onRouteUpdate }: R
       totalDistance: parseFloat(calculateTotalDistance(addresses)),
     };
     
-    if (onRouteUpdate) {
-      onRouteUpdate(updatedRoute);
-    }
-    
     Alert.alert('保存成功', '路线顺序已更新', [
       {
         text: '确定',
@@ -250,10 +263,6 @@ export default function RouteDetailScreen({ route: propRoute, onRouteUpdate }: R
       orderedAddresses: addresses,
       totalDistance: parseFloat(calculateTotalDistance(addresses)),
     };
-    
-    if (onRouteUpdate) {
-      onRouteUpdate(updatedRoute);
-    }
     
     router.push('/navigate', { route: JSON.stringify(updatedRoute) });
   };

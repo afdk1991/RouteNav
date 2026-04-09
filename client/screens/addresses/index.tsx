@@ -19,11 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { AddressItem } from '@/utils/types';
 import { getAddresses, createAddress, updateAddress, deleteAddress, geocodeAddress } from '@/utils/api';
 
-interface AddressScreenProps {
-  onNavigateToRoute?: () => void;
-}
-
-export default function AddressScreen({ onNavigateToRoute }: AddressScreenProps) {
+export default function AddressScreen() {
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);

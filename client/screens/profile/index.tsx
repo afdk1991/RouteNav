@@ -13,11 +13,30 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 
-interface ProfileScreenProps {
-  onThemeChange?: (theme: 'light' | 'dark' | 'system') => void;
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
-export default function ProfileScreen({ onThemeChange }: ProfileScreenProps) {
+export default function ProfileScreen() {
+  const { user, logout } = useAuth();
+  const router = useSafeRouter();
+
+  const handleLogout = () => {
+    Alert.alert(
+      '退出登录',
+      '确定要退出登录吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '退出',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/login');
+          },
+        },
+      ]
+    );
+  };
   const systemColorScheme = useColorScheme();
   const [notifications, setNotifications] = useState(true);
   const [locationPermission, setLocationPermission] = useState(true);
@@ -64,8 +83,8 @@ export default function ProfileScreen({ onThemeChange }: ProfileScreenProps) {
           <Ionicons name="navigate" size={32} color="#FFF" />
         </LinearGradient>
         <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>路线规划用户</Text>
-          <Text style={styles.profileDesc}>开始规划您的路线吧</Text>
+          <Text style={styles.profileName}>{user?.username || '路线规划用户'}</Text>
+          <Text style={styles.profileDesc}>{user?.email || '开始规划您的路线吧'}</Text>
         </View>
       </View>
 

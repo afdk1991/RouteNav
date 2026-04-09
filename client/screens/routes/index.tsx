@@ -17,11 +17,7 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 import type { AddressItem, RouteItem } from '@/utils/types';
 import { getAddresses, getRoutes, optimizeRoute, deleteRoute } from '@/utils/api';
 
-interface RouteScreenProps {
-  onNavigateToPreview?: (route: RouteItem) => void;
-}
-
-export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
+export default function RouteScreen() {
   const router = useSafeRouter();
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
@@ -81,9 +77,8 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
       setModalVisible(false);
       setSelectedIds([]);
       
-      if (onNavigateToPreview) {
-        onNavigateToPreview(tempRoute);
-      }
+      // Navigate to route detail
+      router.push('/route-detail', { route: JSON.stringify(tempRoute) });
     } else {
       Alert.alert('错误', response.error || '路线优化失败');
     }

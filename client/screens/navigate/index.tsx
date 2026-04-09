@@ -14,19 +14,18 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { getExternalMapUrl } from '@/utils/api';
+import { getExternalMapUrl, getRoutes } from '@/utils/api';
 import type { RouteItem } from '@/utils/types';
+import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 
 const { width } = Dimensions.get('window');
 
 // 到达阈值（米）
 const ARRIVAL_THRESHOLD_METERS = 100;
 
-interface NavigateScreenProps {
-  currentRoute?: RouteItem | null;
-}
-
-export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
+export default function NavigateScreen() {
+  const params = useSafeSearchParams<{ route?: string }>();
+  const [currentRoute, setCurrentRoute] = useState<RouteItem | null>(null);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [navigating, setNavigating] = useState(false);
@@ -37,6 +36,29 @@ export default function NavigateScreen({ currentRoute }: NavigateScreenProps) {
   const [showArrivalAlert, setShowArrivalAlert] = useState(false); // 是否显示到达提示
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const lastAutoSwitchIndexRef = useRef<number>(-1); // 记录上次自动切换的索引
+
+  // Initialize route from params or fetch latest
+  useEffect(() => {
+    if (params.route) {
+      try {
+        const parsedRoute = JSON.parse(params.route as string);
+        setCurrentRoute(parsedRoute);
+      } catch {
+        // If parsing fails, fetch latest route
+        fetchLatestRoute();
+      }
+    } else {
+      // No route provided, fetch latest
+      fetchLatestRoute();
+    }
+  }, [params.route]);
+
+  const fetchLatestRoute = async () => {
+    const res = await getRoutes();
+    if (res.success && res.data && res.data.length > 0) {
+      setCurrentRoute(res.data[0]);
+    }
+  };
 
   useEffect(() => {
     requestLocationPermission();

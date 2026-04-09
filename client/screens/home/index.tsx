@@ -12,18 +12,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { AddressItem, RouteItem } from '@/utils/types';
 import { getAddresses, getRoutes } from '@/utils/api';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
-interface HomeScreenProps {
-  onNavigateToRoute?: () => void;
-  onNavigateToNavigate?: () => void;
-  onNavigateToAddresses?: () => void;
-}
-
-export default function HomeScreen({
-  onNavigateToRoute,
-  onNavigateToNavigate,
-  onNavigateToAddresses,
-}: HomeScreenProps) {
+export default function HomeScreen() {
+  const router = useSafeRouter();
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +108,7 @@ export default function HomeScreen({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>最新路线</Text>
-            <TouchableOpacity onPress={onNavigateToRoute}>
+            <TouchableOpacity onPress={() => router.push('/routes')}>
               <Text style={styles.sectionAction}>查看全部</Text>
             </TouchableOpacity>
           </View>
@@ -140,7 +132,7 @@ export default function HomeScreen({
               </View>
               <TouchableOpacity
                 style={styles.startNavBtn}
-                onPress={onNavigateToNavigate}
+                onPress={() => router.push('/navigate')}
               >
                 <LinearGradient
                   colors={['#6C63FF', '#896BFF']}
@@ -187,7 +179,7 @@ export default function HomeScreen({
         <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={onNavigateToAddresses}
+            onPress={() => router.push('/addresses')}
           >
             <LinearGradient colors={['#6C63FF', '#896BFF']} style={styles.actionIconBg}>
               <Ionicons name="add-circle" size={28} color="#FFF" />
@@ -198,7 +190,7 @@ export default function HomeScreen({
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={onNavigateToRoute}
+            onPress={() => router.push('/routes')}
           >
             <LinearGradient colors={['#FF6584', '#FF8A80']} style={styles.actionIconBg}>
               <Ionicons name="analytics" size={28} color="#FFF" />
@@ -209,7 +201,7 @@ export default function HomeScreen({
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={onNavigateToNavigate}
+            onPress={() => router.push('/navigate')}
           >
             <LinearGradient colors={['#00B894', '#00CEC9']} style={styles.actionIconBg}>
               <Ionicons name="navigate" size={28} color="#FFF" />
@@ -304,22 +296,21 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    gap: 12,
   },
   statCard: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F0F3',
-    borderRadius: 20,
-    padding: 16,
-    marginRight: 12,
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statIconContainer: {
     marginRight: 12,
@@ -327,23 +318,26 @@ const styles = StyleSheet.create({
   statIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statInfo: {},
+  statInfo: {
+    flex: 1,
+  },
   statValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#2D3436',
   },
   statLabel: {
     fontSize: 11,
-    color: '#636E72',
+    color: '#B2BEC3',
+    marginTop: 2,
   },
   section: {
     paddingHorizontal: 24,
-    marginBottom: 24,
+    marginTop: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -355,35 +349,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#2D3436',
-    marginBottom: 16,
   },
   sectionAction: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
     color: '#6C63FF',
+    fontWeight: '600',
   },
   routeCard: {
-    backgroundColor: '#F0F0F3',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 6, height: 6 },
-    shadowOpacity: 0.7,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 2,
   },
   routeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
   },
   routeIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   routeInfo: {
     flex: 1,
@@ -398,144 +390,147 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
-  routeDot: {
-    marginHorizontal: 6,
+  routeMetaText: {
+    fontSize: 12,
     color: '#B2BEC3',
   },
-  routeMetaText: {
-    fontSize: 13,
-    color: '#636E72',
+  routeDot: {
+    fontSize: 12,
+    color: '#B2BEC3',
+    marginHorizontal: 6,
   },
   startNavBtn: {
-    shadowColor: '#6C63FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
   },
   startNavBtnGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   routePreview: {
     flexDirection: 'row',
-    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F3',
+    gap: 12,
   },
   routePoint: {
+    flex: 1,
     alignItems: 'center',
-    marginRight: 16,
   },
   routePointDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#E8E8EB',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E8E8F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
   },
   routePointStart: {
-    backgroundColor: '#00B894',
+    backgroundColor: '#6C63FF',
   },
   routePointEnd: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: '#FF6584',
   },
   routePointNum: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
     color: '#FFF',
   },
   routePointName: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#636E72',
-    maxWidth: 60,
+    textAlign: 'center',
   },
   routeMore: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(108, 99, 255, 0.12)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F0F0F3',
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
   },
   routeMoreText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6C63FF',
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#636E72',
   },
   actionsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
+    gap: 12,
   },
   actionCard: {
-    width: '47%',
-    backgroundColor: '#F0F0F3',
-    borderRadius: 24,
-    padding: 20,
-    marginHorizontal: '1.5%',
-    marginBottom: 12,
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 4,
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   actionIconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   actionText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#2D3436',
-    marginBottom: 4,
+    textAlign: 'center',
   },
   actionSubtext: {
-    fontSize: 12,
-    color: '#636E72',
+    fontSize: 10,
+    color: '#B2BEC3',
+    marginTop: 4,
+    textAlign: 'center',
   },
   modesContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   modeCard: {
     flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#F0F0F3',
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 16,
-    marginHorizontal: 4,
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 0.5,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   modeIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
   },
   modeName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#2D3436',
     marginBottom: 4,
   },
   modeDesc: {
     fontSize: 10,
-    color: '#636E72',
+    color: '#B2BEC3',
     textAlign: 'center',
     lineHeight: 14,
   },
