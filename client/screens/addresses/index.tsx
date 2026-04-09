@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   FlatList,
   Modal,
   TextInput,
@@ -350,17 +351,14 @@ export default function AddressScreen() {
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setModalVisible(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ width: '100%' }}
-          >
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalContent}>
+        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ width: '100%' }}
+              >
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={styles.modalContent}>
                   <View style={styles.modalHandle} />
                   <View style={styles.modalTitleRow}>
                     <Text style={styles.modalTitle}>
@@ -535,7 +533,8 @@ export default function AddressScreen() {
               </View>
               </ScrollView>
           </KeyboardAvoidingView>
-        </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
