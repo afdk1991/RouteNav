@@ -536,8 +536,8 @@ export default function AddressScreen({ onNavigateToRoute }: AddressScreenProps)
                       )}
                     </TouchableOpacity>
                   </View>
-                  </View>
-                </ScrollView>
+              </View>
+              </ScrollView>
           </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
