@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { addresses, routes, type Address, type Route } from "./schema";
@@ -1036,6 +1038,37 @@ app.get('/api/v1/attractions/cities/list', (req, res) => {
       count: popularAttractions.filter(a => a.city === city).length,
     })),
   });
+});
+
+// Serve static files from dist-client directory
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientDistPath = path.join(__dirname, '..', 'dist-client');
+
+// Serve static assets with long cache
+app.use('/_expo', express.static(path.join(clientDistPath, '_expo'), {
+  maxAge: '1y',
+  immutable: true,
+  fallthrough: true,
+}));
+
+app.use('/assets', express.static(path.join(clientDistPath, 'assets'), {
+  maxAge: '1y',
+  immutable: true,
+  fallthrough: true,
+}));
+
+// Serve main app files
+app.use(express.static(clientDistPath, {
+  maxAge: '1h',
+  fallthrough: true,
+}));
+
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
+  res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
 app.listen(port, () => {
