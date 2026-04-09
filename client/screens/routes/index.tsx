@@ -66,13 +66,23 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
     setOptimizing(false);
 
     if (response.success && response.data) {
-      setCurrentRoute(response.data);
-      setRoutes((prev) => [response.data!, ...prev]);
+      // Create a temporary route object for preview
+      const tempRoute: RouteItem = {
+        id: Date.now(),
+        name: `路线 ${new Date().toLocaleDateString()}`,
+        optimizationMode: response.data.optimizationMode as 'shortest' | 'balanced' | 'regional',
+        totalDistance: response.data.totalDistance,
+        addressIds: response.data.addressIds,
+        orderedAddresses: response.data.orderedAddresses,
+        createdAt: new Date().toISOString(),
+      };
+      setCurrentRoute(tempRoute);
+      setRoutes((prev) => [tempRoute, ...prev]);
       setModalVisible(false);
       setSelectedIds([]);
       
       if (onNavigateToPreview) {
-        onNavigateToPreview(response.data);
+        onNavigateToPreview(tempRoute);
       }
     } else {
       Alert.alert('错误', response.error || '路线优化失败');

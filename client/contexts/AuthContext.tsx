@@ -1,157 +1,232 @@
-/**
- * 认证上下文 - 管理用户登录状态和认证信息
- */
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 
 interface User {
   id: number;
+  username: string;
   email: string;
-  name?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (username: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  updateUser: (userData: Partial<User>) => void;
-  register: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  checkAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = '@auth_token';
-const USER_KEY = '@auth_user';
+const API_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const AUTH_STORAGE_KEY = '@auth_data';
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<{ success: boolean; data?: T; error?: string }> {
+  try {
+    // Get stored token for authenticated requests
+    const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+    const token = stored ? JSON.parse(stored).token : null;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: result.error || 'Request failed' };
+    }
+
+    return { success: true, data: result.data };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+async function generateDeviceId(): Promise<string> {
+  const existing = await AsyncStorage.getItem('@device_id');
+  if (existing) return existing;
+
+  const uuid = Crypto.randomUUID();
+  await AsyncStorage.setItem('@device_id', uuid);
+  return uuid;
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 初始化：从存储加载认证状态
-  useEffect(() => {
-    const loadAuthState = async () => {
-      try {
-        const savedToken = await AsyncStorage.getItem(TOKEN_KEY);
-        const savedUser = await AsyncStorage.getItem(USER_KEY);
-        
-        if (savedToken && savedUser) {
-          setToken(savedToken);
-          setUser(JSON.parse(savedUser));
+  const checkAuth = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+      if (stored) {
+        const { user: storedUser, token: storedToken } = JSON.parse(stored);
+        if (storedToken && storedUser) {
+          // Verify token is still valid
+          const result = await request<User>('/api/v1/auth/me');
+          if (result.success && result.data) {
+            setUser(result.data);
+            setToken(storedToken);
+          } else {
+            // Token invalid, clear storage
+            await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+          }
         }
-      } catch (error) {
-        console.error('Failed to load auth state:', error);
-      } finally {
-        setIsLoading(false);
       }
-    };
 
-    loadAuthState();
+      // Auto-register demo user if not logged in
+      const existingUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+      if (!existingUser) {
+        const deviceId = await generateDeviceId();
+        const demoEmail = `demo_${deviceId.substring(0, 8)}@routeplanner.local`;
+        const result = await request<{ id: number; username: string; email: string; token: string }>(
+          '/api/v1/auth/register',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              username: 'Demo用户',
+              email: demoEmail,
+              password: 'demo123',
+            }),
+          }
+        );
+
+        if (result.success && result.data) {
+          const authData = {
+            user: {
+              id: result.data.id,
+              username: result.data.username,
+              email: result.data.email,
+            },
+            token: result.data.token,
+          };
+          await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
+          setUser(authData.user);
+          setToken(authData.token);
+        }
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const result = await request<{ id: number; username: string; email: string; token: string }>(
+        '/api/v1/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        }
+      );
 
-      const data = await response.json();
-
-      if (data.success && data.token) {
-        const userData: User = {
-          id: data.user?.id || 0,
-          email: data.user?.email || email,
-          name: data.user?.name,
+      if (result.success && result.data) {
+        const authData = {
+          user: {
+            id: result.data.id,
+            username: result.data.username,
+            email: result.data.email,
+          },
+          token: result.data.token,
         };
-
-        // 保存到存储
-        await AsyncStorage.setItem(TOKEN_KEY, data.token);
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(userData));
-
-        // 更新状态
-        setToken(data.token);
-        setUser(userData);
-
-        return { success: true };
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
+        setUser(authData.user);
+        setToken(authData.token);
+        return true;
       }
-
-      return { success: false, error: data.error || '登录失败' };
+      return false;
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: '网络请求失败' };
+      return false;
     }
-  }, []);
+  };
 
-  const register = useCallback(async (email: string, password: string, name?: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (username: string, email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, name }),
-      });
+      const result = await request<{ id: number; username: string; email: string; token: string }>(
+        '/api/v1/auth/register',
+        {
+          method: 'POST',
+          body: JSON.stringify({ username, email, password }),
+        }
+      );
 
-      const data = await response.json();
-
-      if (data.success) {
-        // 注册成功后自动登录
-        return await login(email, password);
+      if (result.success && result.data) {
+        const authData = {
+          user: {
+            id: result.data.id,
+            username: result.data.username,
+            email: result.data.email,
+          },
+          token: result.data.token,
+        };
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
+        setUser(authData.user);
+        setToken(authData.token);
+        return true;
       }
-
-      return { success: false, error: data.error || '注册失败' };
+      return false;
     } catch (error) {
       console.error('Register error:', error);
-      return { success: false, error: '网络请求失败' };
+      return false;
     }
-  }, [login]);
+  };
 
-  const logout = useCallback(async (): Promise<void> => {
+  const logout = async (): Promise<void> => {
     try {
-      await AsyncStorage.removeItem(TOKEN_KEY);
-      await AsyncStorage.removeItem(USER_KEY);
-      setToken(null);
+      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
+      setToken(null);
     } catch (error) {
       console.error('Logout error:', error);
     }
-  }, []);
-
-  const updateUser = useCallback((userData: Partial<User>) => {
-    setUser(prevUser => {
-      if (!prevUser) return null;
-      const updatedUser = { ...prevUser, ...userData };
-      // 保存到存储
-      AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser)).catch(console.error);
-      return updatedUser;
-    });
-  }, []);
-
-  const value: AuthContextType = {
-    user,
-    token,
-    isAuthenticated: !!token && !!user,
-    isLoading,
-    login,
-    logout,
-    updateUser,
-    register,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isLoading,
+        isAuthenticated: !!user && !!token,
+        login,
+        register,
+        logout,
+        checkAuth,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
-export const useAuth = (): AuthContextType => {
+export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}
+
+export { AuthContext };
