@@ -10,8 +10,9 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Linking,
+  ScrollView,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,9 @@ export default function AddressScreen({ onNavigateToRoute }: AddressScreenProps)
   const [editingAddress, setEditingAddress] = useState<AddressItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchText, setBatchText] = useState('');
+  const [batchProcessing, setBatchProcessing] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
@@ -128,6 +132,115 @@ export default function AddressScreen({ onNavigateToRoute }: AddressScreenProps)
     setIsEnd(false);
     setEditingAddress(null);
     setSearchQuery('');
+    setBatchMode(false);
+    setBatchText('');
+  };
+
+  const handleBatchAdd = async () => {
+    if (!batchText.trim()) {
+      Alert.alert('错误', '请输入地址列表');
+      return;
+    }
+
+    const lines = batchText.split('\n').filter(line => line.trim());
+    if (lines.length === 0) {
+      Alert.alert('错误', '请输入至少一个地址');
+      return;
+    }
+
+    // 检查格式：每行可以是 "名称,地址" 或只有地址
+    const addressesToProcess: string[] = [];
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      if (trimmed) {
+        addressesToProcess.push(trimmed);
+      }
+    });
+
+    if (addressesToProcess.length === 0) {
+      Alert.alert('错误', '没有有效的地址');
+      return;
+    }
+
+    Alert.alert(
+      '批量添加确认',
+      `将添加 ${addressesToProcess.length} 个地址，是否继续？`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '继续',
+          onPress: async () => {
+            setBatchProcessing(true);
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const item of addressesToProcess) {
+              // 解析格式：可能是 "名称,地址" 或只有地址
+              let addrName = '';
+              let addrText = item;
+
+              if (item.includes(',')) {
+                const parts = item.split(',');
+                addrName = parts[0].trim();
+                addrText = parts.slice(1).join(',').trim();
+              } else {
+                addrName = addrText;
+              }
+
+              if (!addrName) {
+                failCount++;
+                continue;
+              }
+
+              // 地理编码
+              const geoResponse = await geocodeAddress(addrText);
+              if (geoResponse.success && geoResponse.data) {
+                const createResponse = await createAddress({
+                  name: addrName,
+                  address: geoResponse.data.displayName,
+                  latitude: geoResponse.data.latitude,
+                  longitude: geoResponse.data.longitude,
+                });
+                if (createResponse.success) {
+                  successCount++;
+                } else {
+                  failCount++;
+                }
+              } else {
+                // 如果地理编码失败，创建没有坐标的地址
+                const createResponse = await createAddress({
+                  name: addrName,
+                  address: addrText,
+                  latitude: 0,
+                  longitude: 0,
+                });
+                if (createResponse.success) {
+                  successCount++;
+                } else {
+                  failCount++;
+                }
+              }
+            }
+
+            setBatchProcessing(false);
+
+            if (successCount > 0) {
+              Alert.alert(
+                '添加完成',
+                `成功添加 ${successCount} 个地址${failCount > 0 ? `，${failCount} 个失败` : ''}`,
+                [{ text: '确定', onPress: () => {
+                  setModalVisible(false);
+                  resetForm();
+                  fetchAddresses();
+                }}]
+              );
+            } else {
+              Alert.alert('错误', '添加失败，请重试');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const openEditModal = (item: AddressItem) => {
@@ -143,40 +256,42 @@ export default function AddressScreen({ onNavigateToRoute }: AddressScreenProps)
 
   const renderAddressItem = ({ item }: { item: AddressItem }) => (
     <View style={styles.addressCard}>
-      <TouchableOpacity
-        style={styles.addressContent}
-        onPress={() => openEditModal(item)}
-        onLongPress={() => handleDelete(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.addressIconContainer}>
-          <View style={[styles.iconBg, item.isStart && styles.iconStart, item.isEnd && styles.iconEnd]}>
-            <Ionicons
-              name={item.isStart ? 'flag' : item.isEnd ? 'flag' : 'location'}
-              size={20}
-              color={item.isStart ? '#00B894' : item.isEnd ? '#FF6B6B' : '#6C63FF'}
-            />
+      <View style={styles.addressContent}>
+        <TouchableOpacity
+          style={styles.addressMain}
+          onPress={() => openEditModal(item)}
+          onLongPress={() => handleDelete(item)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.addressIconContainer}>
+            <View style={[styles.iconBg, item.isStart && styles.iconStart, item.isEnd && styles.iconEnd]}>
+              <Ionicons
+                name={item.isStart ? 'flag' : item.isEnd ? 'flag' : 'location'}
+                size={20}
+                color={item.isStart ? '#00B894' : item.isEnd ? '#FF6B6B' : '#6C63FF'}
+              />
+            </View>
           </View>
-        </View>
-        <View style={styles.addressInfo}>
-          <Text style={styles.addressName}>{item.name}</Text>
-          <Text style={styles.addressDetail} numberOfLines={1}>
-            {item.address}
-          </Text>
-          <View style={styles.addressTags}>
-            {item.isStart && (
-              <View style={[styles.tag, styles.tagStart]}>
-                <Text style={[styles.tagText, styles.tagTextStart]}>起点</Text>
-              </View>
-            )}
-            {item.isEnd && (
-              <View style={[styles.tag, styles.tagEnd]}>
-                <Text style={[styles.tagText, styles.tagTextEnd]}>终点</Text>
-              </View>
-            )}
+          <View style={styles.addressInfo}>
+            <Text style={styles.addressName}>{item.name}</Text>
+            <Text style={styles.addressDetail} numberOfLines={1}>
+              {item.address}
+            </Text>
+            <View style={styles.addressTags}>
+              {item.isStart && (
+                <View style={[styles.tag, styles.tagStart]}>
+                  <Text style={[styles.tagText, styles.tagTextStart]}>起点</Text>
+                </View>
+              )}
+              {item.isEnd && (
+                <View style={[styles.tag, styles.tagEnd]}>
+                  <Text style={[styles.tagText, styles.tagTextEnd]}>终点</Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity
         style={styles.deleteBtn}
         onPress={() => handleDelete(item)}
@@ -248,148 +363,187 @@ export default function AddressScreen({ onNavigateToRoute }: AddressScreenProps)
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ width: '100%' }}
           >
-            {/* eslint-disable-next-line @typescript-eslint/no-empty-function */}
-            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalContent}>
-                <View style={styles.modalHandle} />
-                <Text style={styles.modalTitle}>
-                  {editingAddress ? '编辑地址' : '添加地址'}
-                </Text>
+                  <View style={styles.modalHandle} />
+                  <View style={styles.modalTitleRow}>
+                    <Text style={styles.modalTitle}>
+                      {editingAddress ? '编辑地址' : '添加地址'}
+                    </Text>
+                    {!editingAddress && (
+                      <TouchableOpacity
+                        style={[styles.modeSwitch, batchMode && styles.modeSwitchActive]}
+                        onPress={() => setBatchMode(!batchMode)}
+                      >
+                        <Text style={[styles.modeSwitchText, batchMode && styles.modeSwitchTextActive]}>
+                          {batchMode ? '单个添加' : '批量添加'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
 
-                {/* Name Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>名称</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={name}
-                    onChangeText={setName}
-                    placeholder="输入地址名称"
-                    placeholderTextColor="#B2BEC3"
-                  />
-                </View>
+                  {batchMode ? (
+                    /* Batch Add Mode */
+                    <View style={styles.batchContainer}>
+                      <Text style={styles.batchHint}>
+                        每行输入一个地址，格式：名称,详细地址
+                      </Text>
+                      <TextInput
+                        style={[styles.input, styles.batchInput]}
+                        value={batchText}
+                        onChangeText={setBatchText}
+                        placeholder={"故宫博物院,北京市东城区景山前街4号\n天安门广场,北京市东城区西长安街\n长城,北京市延庆区八达岭镇"
+                        }
+                        placeholderTextColor="#B2BEC3"
+                        multiline
+                        numberOfLines={8}
+                        textAlignVertical="top"
+                      />
+                      <Text style={styles.batchExample}>
+                        示例：故宫博物院,北京市东城区景山前街4号
+                      </Text>
+                    </View>
+                  ) : (
+                    /* Single Add Mode */
+                    <>
+                      {/* Name Input */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>名称</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={name}
+                          onChangeText={setName}
+                          placeholder="输入地址名称"
+                          placeholderTextColor="#B2BEC3"
+                        />
+                      </View>
 
-                {/* Search Address */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>搜索地址</Text>
-                  <View style={styles.searchRow}>
-                    <TextInput
-                      style={[styles.input, styles.searchInput]}
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      placeholder="输入地址搜索"
-                      placeholderTextColor="#B2BEC3"
-                    />
+                      {/* Search Address */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>搜索地址</Text>
+                        <View style={styles.searchRow}>
+                          <TextInput
+                            style={[styles.input, styles.searchInput]}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholder="输入地址搜索"
+                            placeholderTextColor="#B2BEC3"
+                          />
+                          <TouchableOpacity
+                            style={styles.searchBtn}
+                            onPress={handleSearchAddress}
+                            disabled={searching}
+                          >
+                            {searching ? (
+                              <ActivityIndicator size="small" color="#FFF" />
+                            ) : (
+                              <Ionicons name="search" size={20} color="#FFF" />
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Address Input */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>详细地址</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={address}
+                          onChangeText={setAddress}
+                          placeholder="输入详细地址"
+                          placeholderTextColor="#B2BEC3"
+                        />
+                      </View>
+
+                      {/* Coordinates */}
+                      <View style={styles.coordRow}>
+                        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                          <Text style={styles.inputLabel}>纬度</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={latitude}
+                            onChangeText={setLatitude}
+                            placeholder="纬度"
+                            placeholderTextColor="#B2BEC3"
+                            keyboardType="numeric"
+                          />
+                        </View>
+                        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                          <Text style={styles.inputLabel}>经度</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={longitude}
+                            onChangeText={setLongitude}
+                            placeholder="经度"
+                            placeholderTextColor="#B2BEC3"
+                            keyboardType="numeric"
+                          />
+                        </View>
+                      </View>
+
+                      {/* Flags */}
+                      <View style={styles.flagRow}>
+                        <TouchableOpacity
+                          style={[styles.flagBtn, isStart && styles.flagBtnActive]}
+                          onPress={() => setIsStart(!isStart)}
+                        >
+                          <Ionicons
+                            name="flag"
+                            size={18}
+                            color={isStart ? '#00B894' : '#B2BEC3'}
+                          />
+                          <Text style={[styles.flagText, isStart && styles.flagTextActive]}>
+                            设为起点
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.flagBtn, isEnd && styles.flagBtnActive]}
+                          onPress={() => setIsEnd(!isEnd)}
+                        >
+                          <Ionicons
+                            name="flag"
+                            size={18}
+                            color={isEnd ? '#FF6B6B' : '#B2BEC3'}
+                          />
+                          <Text style={[styles.flagText, isEnd && styles.flagTextActive]}>
+                            设为终点
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+
+                  {/* Actions */}
+                  <View style={styles.modalActions}>
                     <TouchableOpacity
-                      style={styles.searchBtn}
-                      onPress={handleSearchAddress}
-                      disabled={searching}
+                      style={[styles.modalBtn, styles.cancelBtn]}
+                      onPress={() => {
+                        setModalVisible(false);
+                        resetForm();
+                      }}
                     >
-                      {searching ? (
+                      <Text style={styles.cancelBtnText}>取消</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.saveBtn]}
+                      onPress={batchMode ? handleBatchAdd : handleSave}
+                      disabled={batchProcessing}
+                    >
+                      {batchProcessing ? (
                         <ActivityIndicator size="small" color="#FFF" />
                       ) : (
-                        <Ionicons name="search" size={20} color="#FFF" />
+                        <Text style={styles.saveBtnText}>{batchMode ? '批量添加' : '保存'}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
-                </View>
-
-                {/* Address Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>详细地址</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={address}
-                    onChangeText={setAddress}
-                    placeholder="输入详细地址"
-                    placeholderTextColor="#B2BEC3"
-                  />
-                </View>
-
-                {/* Coordinates */}
-                <View style={styles.coordRow}>
-                  <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                    <Text style={styles.inputLabel}>纬度</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={latitude}
-                      onChangeText={setLatitude}
-                      placeholder="纬度"
-                      placeholderTextColor="#B2BEC3"
-                      keyboardType="numeric"
-                    />
                   </View>
-                  <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                    <Text style={styles.inputLabel}>经度</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={longitude}
-                      onChangeText={setLongitude}
-                      placeholder="经度"
-                      placeholderTextColor="#B2BEC3"
-                      keyboardType="numeric"
-                    />
-                  </View>
-                </View>
-
-                {/* Flags */}
-                <View style={styles.flagRow}>
-                  <TouchableOpacity
-                    style={[styles.flagBtn, isStart && styles.flagBtnActive]}
-                    onPress={() => setIsStart(!isStart)}
-                  >
-                    <Ionicons
-                      name="flag"
-                      size={18}
-                      color={isStart ? '#00B894' : '#B2BEC3'}
-                    />
-                    <Text style={[styles.flagText, isStart && styles.flagTextActive]}>
-                      设为起点
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.flagBtn, isEnd && styles.flagBtnActive]}
-                    onPress={() => setIsEnd(!isEnd)}
-                  >
-                    <Ionicons
-                      name="flag"
-                      size={18}
-                      color={isEnd ? '#FF6B6B' : '#B2BEC3'}
-                    />
-                    <Text style={[styles.flagText, isEnd && styles.flagTextActive]}>
-                      设为终点
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Actions */}
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.cancelBtn]}
-                    onPress={() => {
-                      setModalVisible(false);
-                      resetForm();
-                    }}
-                  >
-                    <Text style={styles.cancelBtnText}>取消</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.saveBtn]}
-                    onPress={handleSave}
-                  >
-                    <Text style={styles.saveBtnText}>保存</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableOpacity>
+                </ScrollView>
           </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
     </View>
   );
 }
-
-// Need to import this at the top
-import { KeyboardAvoidingView } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {
@@ -652,5 +806,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modeSwitch: {
+    backgroundColor: '#E8E8EB',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  modeSwitchActive: {
+    backgroundColor: 'rgba(108, 99, 255, 0.12)',
+  },
+  modeSwitchText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  modeSwitchTextActive: {
+    color: '#6C63FF',
+  },
+  batchContainer: {
+    marginBottom: 16,
+  },
+  batchHint: {
+    fontSize: 13,
+    color: '#636E72',
+    marginBottom: 12,
+  },
+  batchInput: {
+    height: 180,
+    paddingTop: 16,
+  },
+  batchExample: {
+    fontSize: 12,
+    color: '#B2BEC3',
+    marginTop: 8,
+  },
+  addressMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

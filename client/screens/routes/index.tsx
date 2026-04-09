@@ -128,30 +128,32 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
   };
 
   const renderRouteItem = ({ item }: { item: RouteItem }) => (
-    <TouchableOpacity 
-      style={styles.routeCard}
-      onPress={() => router.push('/route-detail', { route: JSON.stringify(item) })}
-      onLongPress={() => handleDeleteRoute(item)}
-      activeOpacity={0.8}
-    >
+    <View style={styles.routeCard}>
       <View style={styles.routeHeader}>
-        <View style={styles.routeIconContainer}>
-          <LinearGradient colors={['#6C63FF', '#896BFF']} style={styles.routeIconBg}>
-            <Ionicons name="navigate" size={22} color="#FFF" />
-          </LinearGradient>
-        </View>
-        <View style={styles.routeInfo}>
-          <Text style={styles.routeName}>{item.name}</Text>
-          <View style={styles.routeMeta}>
-            <View style={styles.modeTag}>
-              <Ionicons name={getModeIcon(item.optimizationMode) as any} size={12} color="#6C63FF" />
-              <Text style={styles.modeTagText}>{getModeLabel(item.optimizationMode)}</Text>
-            </View>
-            <Text style={styles.routeDate}>
-              {new Date(item.createdAt).toLocaleDateString()}
-            </Text>
+        <TouchableOpacity
+          style={styles.routeMain}
+          onPress={() => router.push('/route-detail', { route: JSON.stringify(item) })}
+          onLongPress={() => handleDeleteRoute(item)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.routeIconContainer}>
+            <LinearGradient colors={['#6C63FF', '#896BFF']} style={styles.routeIconBg}>
+              <Ionicons name="navigate" size={22} color="#FFF" />
+            </LinearGradient>
           </View>
-        </View>
+          <View style={styles.routeInfo}>
+            <Text style={styles.routeName}>{item.name}</Text>
+            <View style={styles.routeMeta}>
+              <View style={styles.modeTag}>
+                <Ionicons name={getModeIcon(item.optimizationMode) as any} size={12} color="#6C63FF" />
+                <Text style={styles.modeTagText}>{getModeLabel(item.optimizationMode)}</Text>
+              </View>
+              <Text style={styles.routeDate}>
+                {new Date(item.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.editBtn}
           onPress={() => router.push('/route-detail', { route: JSON.stringify(item) })}
@@ -162,11 +164,14 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
       </View>
       
       <View style={styles.routeStats}>
-        <View style={styles.statItem}>
+        <TouchableOpacity
+          style={styles.statItem}
+          onPress={() => router.push('/route-detail', { route: JSON.stringify(item) })}
+        >
           <Ionicons name="location" size={16} color="#636E72" />
           <Text style={styles.statValue}>{item.orderedAddresses.length}</Text>
           <Text style={styles.statLabel}>个地点</Text>
-        </View>
+        </TouchableOpacity>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Ionicons name="analytics" size={16} color="#636E72" />
@@ -177,11 +182,15 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
 
       <View style={styles.routeAddresses}>
         {item.orderedAddresses.slice(0, 3).map((addr, index) => (
-          <View key={addr.id} style={styles.addressPill}>
+          <TouchableOpacity
+            key={addr.id}
+            style={styles.addressPill}
+            onPress={() => router.push('/route-detail', { route: JSON.stringify(item) })}
+          >
             <Text style={styles.addressPillText} numberOfLines={1}>
               {index + 1}. {addr.name}
             </Text>
-          </View>
+          </TouchableOpacity>
         ))}
         {item.orderedAddresses.length > 3 && (
           <View style={[styles.addressPill, styles.morePill]}>
@@ -189,7 +198,7 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   const renderAddressCheckbox = ({ item }: { item: AddressItem }) => (
@@ -273,82 +282,79 @@ export default function RouteScreen({ onNavigateToPreview }: RouteScreenProps) {
           onPress={() => setModalVisible(false)}
         >
           <View style={styles.modalContainer}>
-            {/* eslint-disable-next-line @typescript-eslint/no-empty-function */}
-            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHandle} />
-                <Text style={styles.modalTitle}>选择地址</Text>
-                <Text style={styles.modalSubtitle}>
-                  已选择 {selectedIds.length} 个地址（需要至少2个）
-                </Text>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>选择地址</Text>
+              <Text style={styles.modalSubtitle}>
+                已选择 {selectedIds.length} 个地址（需要至少2个）
+              </Text>
 
-                {/* Mode Selection */}
-                <View style={styles.modeSection}>
-                  <Text style={styles.modeSectionTitle}>优化模式</Text>
-                  <View style={styles.modeButtons}>
-                    {(['shortest', 'balanced', 'regional'] as const).map((mode) => (
-                      <TouchableOpacity
-                        key={mode}
-                        style={[styles.modeButton, optimizationMode === mode && styles.modeButtonActive]}
-                        onPress={() => setOptimizationMode(mode)}
+              {/* Mode Selection */}
+              <View style={styles.modeSection}>
+                <Text style={styles.modeSectionTitle}>优化模式</Text>
+                <View style={styles.modeButtons}>
+                  {(['shortest', 'balanced', 'regional'] as const).map((mode) => (
+                    <TouchableOpacity
+                      key={mode}
+                      style={[styles.modeButton, optimizationMode === mode && styles.modeButtonActive]}
+                      onPress={() => setOptimizationMode(mode)}
+                    >
+                      <Ionicons
+                        name={getModeIcon(mode) as any}
+                        size={18}
+                        color={optimizationMode === mode ? '#6C63FF' : '#B2BEC3'}
+                      />
+                      <Text
+                        style={[
+                          styles.modeButtonText,
+                          optimizationMode === mode && styles.modeButtonTextActive,
+                        ]}
                       >
-                        <Ionicons
-                          name={getModeIcon(mode) as any}
-                          size={18}
-                          color={optimizationMode === mode ? '#6C63FF' : '#B2BEC3'}
-                        />
-                        <Text
-                          style={[
-                            styles.modeButtonText,
-                            optimizationMode === mode && styles.modeButtonTextActive,
-                          ]}
-                        >
-                          {getModeLabel(mode)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <Text style={styles.modeDescription}>
-                    {optimizationMode === 'shortest' && '贪心算法 + 2-opt 优化，速度快'}
-                    {optimizationMode === 'balanced' && '多次迭代深度优化，效果好'}
-                    {optimizationMode === 'regional' && '适合同方向多地点，效率高'}
-                  </Text>
+                        {getModeLabel(mode)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-
-                {/* Address List */}
-                <ScrollView style={styles.addressList} showsVerticalScrollIndicator={false}>
-                  {addresses.map((item) => renderAddressCheckbox({ item }))}
-                </ScrollView>
-
-                {/* Actions */}
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.cancelBtn]}
-                    onPress={() => {
-                      setModalVisible(false);
-                      setSelectedIds([]);
-                    }}
-                  >
-                    <Text style={styles.cancelBtnText}>取消</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalBtn,
-                      styles.optimizeBtn,
-                      (selectedIds.length < 2 || optimizing) && styles.optimizeBtnDisabled,
-                    ]}
-                    onPress={handleOptimize}
-                    disabled={selectedIds.length < 2 || optimizing}
-                  >
-                    {optimizing ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                    ) : (
-                      <Text style={styles.optimizeBtnText}>开始优化</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.modeDescription}>
+                  {optimizationMode === 'shortest' && '贪心算法 + 2-opt 优化，速度快'}
+                  {optimizationMode === 'balanced' && '多次迭代深度优化，效果好'}
+                  {optimizationMode === 'regional' && '适合同方向多地点，效率高'}
+                </Text>
               </View>
-            </TouchableOpacity>
+
+              {/* Address List */}
+              <ScrollView style={styles.addressList} showsVerticalScrollIndicator={false}>
+                {addresses.map((item) => renderAddressCheckbox({ item }))}
+              </ScrollView>
+
+              {/* Actions */}
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.cancelBtn]}
+                  onPress={() => {
+                    setModalVisible(false);
+                    setSelectedIds([]);
+                  }}
+                >
+                  <Text style={styles.cancelBtnText}>取消</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalBtn,
+                    styles.optimizeBtn,
+                    (selectedIds.length < 2 || optimizing) && styles.optimizeBtnDisabled,
+                  ]}
+                  onPress={handleOptimize}
+                  disabled={selectedIds.length < 2 || optimizing}
+                >
+                  {optimizing ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.optimizeBtnText}>开始优化</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -712,5 +718,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
+  },
+  routeMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
