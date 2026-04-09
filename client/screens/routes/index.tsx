@@ -13,18 +13,23 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import type { AddressItem, RouteItem } from '@/utils/types';
 import { getAddresses, getRoutes, optimizeRoute, deleteRoute } from '@/utils/api';
 
 export default function RouteScreen() {
   const router = useSafeRouter();
+  const params = useSafeSearchParams<{ mode?: string }>();
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [optimizing, setOptimizing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [optimizationMode, setOptimizationMode] = useState<'shortest' | 'balanced' | 'regional'>('shortest');
+  const [optimizationMode, setOptimizationMode] = useState<'shortest' | 'balanced' | 'regional'>(() => {
+    if (params.mode === 'balanced') return 'balanced';
+    if (params.mode === 'region') return 'regional';
+    return 'shortest';
+  });
   const [modalVisible, setModalVisible] = useState(false);
   const [currentRoute, setCurrentRoute] = useState<RouteItem | null>(null);
 

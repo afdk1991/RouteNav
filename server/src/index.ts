@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db, schema } from "./db";
-import { eq, and, like, or, desc } from "drizzle-orm";
+import { eq, and, like, or, desc, inArray } from "drizzle-orm";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -666,6 +666,80 @@ app.get('/api/v1/attractions/cities/list', async (req: Request, res: Response, n
     res.status(200).json({
       success: true,
       data: Object.entries(cityCounts).map(([city, count]) => ({ city, count })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add attraction to user addresses
+app.post('/api/v1/addresses/from-attraction/:id', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const attractionId = parseInt(req.params.id as string);
+    
+    // Get attraction
+    const attraction = await db.query.attractions.findFirst({
+      where: eq(schema.attractions.id, attractionId),
+    });
+
+    if (!attraction) {
+      return res.status(404).json({ success: false, error: 'Attraction not found' });
+    }
+
+    // Create address from attraction
+    const [newAddress] = await db.insert(schema.addresses).values({
+      userId: req.userId!,
+      name: attraction.name,
+      address: attraction.address,
+      latitude: attraction.latitude,
+      longitude: attraction.longitude,
+      isStart: false,
+      isEnd: false,
+    }).returning();
+
+    res.status(201).json({ success: true, data: newAddress });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Batch add attractions to user addresses
+app.post('/api/v1/addresses/from-attractions', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { attractionIds } = req.body as { attractionIds?: number[] };
+
+    if (!attractionIds || !Array.isArray(attractionIds)) {
+      return res.status(400).json({ success: false, error: 'Attraction IDs required' });
+    }
+
+    // Get attractions
+    const attractions = await db.query.attractions.findMany({
+      where: inArray(schema.attractions.id, attractionIds),
+    });
+
+    if (attractions.length === 0) {
+      return res.status(404).json({ success: false, error: 'No attractions found' });
+    }
+
+    // Create addresses from attractions
+    const addressesToInsert = attractions.map(a => ({
+      userId: req.userId!,
+      name: a.name,
+      address: a.address,
+      latitude: a.latitude,
+      longitude: a.longitude,
+      isStart: false,
+      isEnd: false,
+    }));
+
+    const newAddresses = await db.insert(schema.addresses).values(addressesToInsert).returning();
+
+    res.status(201).json({ 
+      success: true, 
+      data: {
+        added: newAddresses.length,
+        addresses: newAddresses,
+      }
     });
   } catch (error) {
     next(error);

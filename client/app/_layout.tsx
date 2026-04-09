@@ -27,6 +27,7 @@ export default function RootLayout() {
           <Stack.Screen name="register" options={{ title: "注册" }} />
           <Stack.Screen name="(tabs)" options={{ title: "" }} />
           <Stack.Screen name="route-detail" options={{ title: "路线详情" }} />
+          <Stack.Screen name="attractions" options={{ title: "选择景点" }} />
         </Stack>
         <Toast />
       </AuthProvider>

@@ -64,7 +64,7 @@ export default function HomeScreen() {
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
+        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/addresses')}>
           <View style={styles.statIconContainer}>
             <LinearGradient colors={['#6C63FF', '#896BFF']} style={styles.statIcon}>
               <Ionicons name="location" size={20} color="#FFF" />
@@ -74,9 +74,9 @@ export default function HomeScreen() {
             <Text style={styles.statValue}>{addresses.length}</Text>
             <Text style={styles.statLabel}>个地址</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.statCard}>
+        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/routes')}>
           <View style={[styles.statIconContainer]}>
             <LinearGradient colors={['#FF6584', '#FF8A80']} style={styles.statIcon}>
               <Ionicons name="git-branch" size={20} color="#FFF" />
@@ -86,9 +86,9 @@ export default function HomeScreen() {
             <Text style={styles.statValue}>{routes.length}</Text>
             <Text style={styles.statLabel}>条路线</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.statCard}>
+        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/navigate')}>
           <View style={[styles.statIconContainer]}>
             <LinearGradient colors={['#00B894', '#00CEC9']} style={styles.statIcon}>
               <Ionicons name="analytics" size={20} color="#FFF" />
@@ -100,7 +100,7 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.statLabel}>总公里</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Latest Route */}
@@ -179,13 +179,13 @@ export default function HomeScreen() {
         <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/addresses')}
+            onPress={() => router.push('/attractions')}
           >
             <LinearGradient colors={['#6C63FF', '#896BFF']} style={styles.actionIconBg}>
               <Ionicons name="add-circle" size={28} color="#FFF" />
             </LinearGradient>
-            <Text style={styles.actionText}>添加地址</Text>
-            <Text style={styles.actionSubtext}>管理常用地点</Text>
+            <Text style={styles.actionText}>添加景点</Text>
+            <Text style={styles.actionSubtext}>快速添加热门地点</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -216,29 +216,38 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>优化模式</Text>
         <View style={styles.modesContainer}>
-          <View style={styles.modeCard}>
+          <TouchableOpacity
+            style={styles.modeCard}
+            onPress={() => router.push('/routes', { mode: 'greedy' })}
+          >
             <View style={[styles.modeIconBg, { backgroundColor: 'rgba(108, 99, 255, 0.12)' }]}>
               <Ionicons name="speedometer" size={24} color="#6C63FF" />
             </View>
             <Text style={styles.modeName}>最短距离</Text>
             <Text style={styles.modeDesc}>贪心+2-opt{'\n'}速度优先</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.modeCard}>
+          <TouchableOpacity
+            style={styles.modeCard}
+            onPress={() => router.push('/routes', { mode: 'balanced' })}
+          >
             <View style={[styles.modeIconBg, { backgroundColor: 'rgba(255, 101, 132, 0.12)' }]}>
               <Ionicons name="git-merge" size={24} color="#FF6584" />
             </View>
             <Text style={styles.modeName}>均衡路线</Text>
             <Text style={styles.modeDesc}>多次迭代{'\n'}效果优先</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.modeCard}>
+          <TouchableOpacity
+            style={styles.modeCard}
+            onPress={() => router.push('/routes', { mode: 'region' })}
+          >
             <View style={[styles.modeIconBg, { backgroundColor: 'rgba(0, 184, 148, 0.12)' }]}>
               <Ionicons name="scan" size={24} color="#00B894" />
             </View>
             <Text style={styles.modeName}>区域扫描</Text>
             <Text style={styles.modeDesc}>同方向多地点{'\n'}效率优先</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 

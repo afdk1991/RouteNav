@@ -279,6 +279,19 @@ export async function getCitiesList(): Promise<ApiResponse<{ city: string; count
   return requestWithRetry(`/api/v1/attractions/cities/list`);
 }
 
+export async function addAttractionToAddress(attractionId: number): Promise<ApiResponse<AddressItem>> {
+  return requestWithRetry<AddressItem>(`/api/v1/addresses/from-attraction/${attractionId}`, {
+    method: 'POST',
+  });
+}
+
+export async function addAttractionsToAddresses(attractionIds: number[]): Promise<ApiResponse<{ added: number; addresses: AddressItem[] }>> {
+  return requestWithRetry(`/api/v1/addresses/from-attractions`, {
+    method: 'POST',
+    body: JSON.stringify({ attractionIds }),
+  });
+}
+
 // ============ Health Check ============
 
 export async function healthCheck(): Promise<boolean> {
