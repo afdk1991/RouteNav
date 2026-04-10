@@ -129,7 +129,7 @@ export default function RouteScreen() {
       case 'shortest':
         return 'speedometer';
       case 'balanced':
-        return 'git平衡';
+        return 'git-merge';
       case 'regional':
         return 'scan';
       default:
@@ -334,7 +334,11 @@ export default function RouteScreen() {
 
               {/* Address List */}
               <ScrollView style={styles.addressList} showsVerticalScrollIndicator={false}>
-                {addresses.map((item) => renderAddressCheckbox({ item }))}
+                {addresses.map((item) => (
+                  <View key={item.id}>
+                    {renderAddressCheckbox({ item })}
+                  </View>
+                ))}
               </ScrollView>
 
               {/* Actions */}
