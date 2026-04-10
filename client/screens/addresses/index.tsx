@@ -19,8 +19,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { AddressItem } from '@/utils/types';
 import { getAddresses, createAddress, updateAddress, deleteAddress, geocodeAddress } from '@/utils/api';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 export default function AddressScreen() {
+  const router = useSafeRouter();
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -65,7 +67,14 @@ export default function AddressScreen() {
       setLatitude(response.data.latitude.toString());
       setLongitude(response.data.longitude.toString());
     } else {
-      Alert.alert('错误', response.error || '地址解析失败');
+      Alert.alert(
+        '搜索提示', 
+        '地址搜索需要网络连接，请检查网络后重试。\n\n或者使用「添加景点」功能快速添加预置地点。',
+        [
+          { text: '确定', style: 'cancel' },
+          { text: '添加景点', onPress: () => router.push('/attractions') }
+        ]
+      );
     }
   };
 
