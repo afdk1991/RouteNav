@@ -8,6 +8,13 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db, schema } from "./db";
 import { eq, and, like, or, desc, inArray } from "drizzle-orm";
+import { 
+  httpStatusInterceptor, 
+  responseLogger, 
+  requestLogger,
+  corsMiddleware,
+  responseFormat 
+} from "./interceptors";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,8 +23,12 @@ const app = express();
 const port = process.env.PORT || 9091;
 const JWT_SECRET = process.env.JWT_SECRET || "route-planner-secret-key-2024";
 
-// Middleware
-app.use(cors());
+// Middleware - 顺序很重要
+app.use(corsMiddleware);
+app.use(requestLogger);
+app.use(responseLogger);
+app.use(httpStatusInterceptor);
+app.use(responseFormat);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -751,6 +762,10 @@ app.post('/api/v1/addresses/from-attractions', authMiddleware, async (req: AuthR
 app.get('/api/v1/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ============ API 文档 ============
+import docsRouter from './routes/docs';
+app.use('/api/v1', docsRouter);
 
 // ============ Static Files (Production) ============
 
