@@ -1,0 +1,43 @@
+{
+  "name": "route-planner-mini",
+  "version": "1.0.0",
+  "description": "智能路线规划小程序 - Taro 版本",
+  "private": true,
+  "scripts": {
+    "dev:weapp": "taro build --type weapp --watch",
+    "dev:h5": "taro build --type h5 --watch",
+    "dev:抖音": "taro build --type tt --watch",
+    "build:weapp": "taro build --type weapp",
+    "build:h5": "taro build --type h5",
+    "build:抖音": "taro build --type tt",
+    "lint": "eslint src --ext .ts,.tsx,.js,.jsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tarojs/components": "^4.0.0",
+    "@tarojs/plugin-framework-react": "^4.0.0",
+    "@tarojs/plugin-platform-weapp": "^4.0.0",
+    "@tarojs/plugin-platform-抖音": "^4.0.0",
+    "@tarojs/react": "^4.0.0",
+    "@tarojs/runtime": "^4.0.0",
+    "@tarojs/taro": "^4.0.0",
+    "@tarojs/webpack5-runner": "^4.0.0",
+    "lucide-react-taro": "^1.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@tarojs/cli": "^4.0.0",
+    "@types/react": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "babel-preset-taro": "^4.0.0",
+    "eslint": "^8.0.0",
+    "stylelint": "^16.0.0",
+    "tailwindcss": "^4.0.0",
+    "taro-webpack5-runner": "^4.0.0",
+    "typescript": "^5.0.0",
+    "weapp-tailwindcss": "^4.0.0"
+  }
+}
